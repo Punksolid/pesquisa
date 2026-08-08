@@ -116,6 +116,35 @@ Levantá la app:
 php artisan serve
 ```
 
+## Despliegue a producción
+
+Los archivos `storage/oauth-private.key` y `storage/oauth-public.key` que genera
+`php artisan passport:keys` están **deliberadamente** fuera de git (son secretos:
+ver `.gitignore`, `/storage/*.key`). Cada entorno nuevo tiene que generarlos por
+su cuenta, y si no existen o quedan vacíos, el flujo de OAuth falla en el paso de
+`/oauth/token` (o al armar la vista de autorización) con `Invalid key supplied`.
+
+- **Servidor persistente** (Forge, VPS, etc.): alcanza con correr
+  `php artisan passport:keys` una vez después del primer deploy.
+- **Deploys inmutables / contenedores** (Docker, k8s, Vapor, o cualquier setup
+  donde el filesystem se recrea en cada release): las claves no sobreviven a un
+  redeploy a menos que `storage/` esté en un volumen persistente. La alternativa
+  más simple es no depender del filesystem: generar el par de claves una vez
+  (`php artisan passport:keys`, mirar `storage/oauth-*.key`) y setear su
+  contenido como variables de entorno `PASSPORT_PRIVATE_KEY` y
+  `PASSPORT_PUBLIC_KEY` (con saltos de línea reales o como `\n` literal, Passport
+  los normaliza). Con esas env vars seteadas, Passport ya no toca el filesystem
+  para las claves.
+
+Además, en producción:
+
+- Seteá `APP_URL=https://pesquisa.josepalazuelos.com` — de ahí salen
+  `issuer`, `authorization_endpoint`, `token_endpoint`, etc. en
+  `/.well-known/oauth-authorization-server`.
+- Revisá `config/mcp.php` → `redirect_domains`. Por defecto es `['*']` (acepta
+  cualquier `redirect_uri` en el registro dinámico de clientes); en producción
+  conviene acotarlo a los dominios de los clientes MCP que vas a permitir.
+
 ## Verificar que todo compila y migra
 
 ```bash
