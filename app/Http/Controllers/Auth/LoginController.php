@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class LoginController extends Controller
@@ -15,17 +18,38 @@ class LoginController extends Controller
         return view('auth.login');
     }
 
+    /**
+     * Log in an existing account, or create one on the spot if the email is new.
+     *
+     * This is the only entry point into Pesquisa: an MCP client's OAuth
+     * consent flow redirects unauthenticated users here, so simply
+     * connecting and filling this form out once is enough to register.
+     */
     public function store(Request $request): RedirectResponse
     {
-        $credentials = $request->validate([
+        $validated = $request->validate([
+            'name' => ['nullable', 'string', 'max:255'],
             'email' => ['required', 'email'],
-            'password' => ['required', 'string'],
+            'password' => ['required', 'string', 'min:8'],
         ]);
 
-        if (! Auth::attempt($credentials, $request->boolean('remember'))) {
-            return back()->withErrors([
-                'email' => 'These credentials do not match our records.',
-            ])->onlyInput('email');
+        $user = User::where('email', $validated['email'])->first();
+
+        if ($user) {
+            if (! Auth::attempt(['email' => $validated['email'], 'password' => $validated['password']], $request->boolean('remember'))) {
+                return back()->withErrors([
+                    'password' => 'Esa contraseña no coincide con la cuenta existente.',
+                ])->onlyInput('email', 'name');
+            }
+        } else {
+            $user = User::create([
+                'name' => ($validated['name'] ?? null) ?: Str::before($validated['email'], '@'),
+                'email' => $validated['email'],
+                'password' => Hash::make($validated['password']),
+                'email_verified_at' => now(),
+            ]);
+
+            Auth::login($user, $request->boolean('remember'));
         }
 
         $request->session()->regenerate();

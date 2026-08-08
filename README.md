@@ -78,8 +78,13 @@ bajo OAuth 2.1.
 limiter `mcp` usado por el middleware `throttle:mcp`.
 
 Como la pantalla de consentimiento de Passport requiere una sesión web
-autenticada, el proyecto incluye un login mínimo (`/login`, guard `web`) —
-sin registro público; los usuarios se crean vía seeder o tinker.
+autenticada, el proyecto incluye un login mínimo (`/login`, guard `web`).
+Ese formulario **también sirve como registro**: si el email no existe todavía,
+`LoginController@store` crea la cuenta ahí mismo (con el nombre indicado, o el
+prefijo del email si se deja en blanco) y loguea al usuario en el mismo paso.
+En la práctica esto significa que conectarse por primera vez desde un cliente
+MCP —que redirige a `/login` al no encontrar sesión— ya alcanza para darse de
+alta: no hace falta un flujo de registro separado.
 
 ## Instalación
 
