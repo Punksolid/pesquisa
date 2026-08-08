@@ -6,6 +6,7 @@ use App\Mcp\Prompts\InvestigationBriefingPrompt;
 use App\Mcp\Resources\LeaderboardResource;
 use App\Mcp\Resources\OpenInvestigationsResource;
 use App\Mcp\Tools\ConfirmHypothesisTool;
+use App\Mcp\Tools\CreateInvestigationTool;
 use App\Mcp\Tools\LeaderboardTool;
 use App\Mcp\Tools\ListInvestigationsTool;
 use App\Mcp\Tools\ProposeHypothesisTool;
@@ -28,6 +29,7 @@ use Laravel\Mcp\Server\Attributes\Version;
     (confirm-hypothesis-tool), which closes the case and pays out bonus points to the
     proposer and everyone who voted for it. Use list-investigations-tool and
     view-investigation-tool to browse cases, and leaderboard-tool to see standings.
+    The Pesquisa admin can also open new cases with create-investigation-tool.
     INSTRUCTIONS
 )]
 class PesquisaServer extends Server
@@ -40,6 +42,7 @@ class PesquisaServer extends Server
         VoteHypothesisTool::class,
         ConfirmHypothesisTool::class,
         LeaderboardTool::class,
+        CreateInvestigationTool::class,
     ];
 
     protected array $resources = [

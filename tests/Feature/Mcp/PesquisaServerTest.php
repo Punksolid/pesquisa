@@ -6,6 +6,7 @@ use App\Enums\HypothesisStatus;
 use App\Enums\InvestigationStatus;
 use App\Mcp\Servers\PesquisaServer;
 use App\Mcp\Tools\ConfirmHypothesisTool;
+use App\Mcp\Tools\CreateInvestigationTool;
 use App\Mcp\Tools\LeaderboardTool;
 use App\Mcp\Tools\ListInvestigationsTool;
 use App\Mcp\Tools\ProposeHypothesisTool;
@@ -23,11 +24,11 @@ class PesquisaServerTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_it_lists_all_seven_tools_two_resources_and_one_prompt(): void
+    public function test_it_lists_all_eight_tools_two_resources_and_one_prompt(): void
     {
         $defaults = (new \ReflectionClass(PesquisaServer::class))->getDefaultProperties();
 
-        $this->assertCount(7, $defaults['tools']);
+        $this->assertCount(8, $defaults['tools']);
         $this->assertCount(2, $defaults['resources']);
         $this->assertCount(1, $defaults['prompts']);
     }
@@ -184,6 +185,38 @@ class PesquisaServerTest extends TestCase
         PesquisaServer::actingAs($user)
             ->tool(ListInvestigationsTool::class, ['status' => 'solved'])
             ->assertOk();
+    }
+
+    public function test_create_investigation_tool_is_unreachable_for_a_regular_user(): void
+    {
+        $user = User::factory()->create(['email' => 'nobody@pesquisa.test']);
+
+        PesquisaServer::actingAs($user)
+            ->tool(CreateInvestigationTool::class, [
+                'title' => 'Intento no autorizado',
+                'summary' => 'Esto no debería crearse.',
+            ])
+            ->assertHasErrors(['not found']);
+
+        $this->assertDatabaseMissing('investigations', ['title' => 'Intento no autorizado']);
+    }
+
+    public function test_create_investigation_tool_works_for_the_admin(): void
+    {
+        $admin = User::factory()->create(['email' => config('pesquisa.admin_email')]);
+
+        PesquisaServer::actingAs($admin)
+            ->tool(CreateInvestigationTool::class, [
+                'title' => 'Caso nuevo del admin',
+                'summary' => 'Un caso recién abierto.',
+            ])
+            ->assertOk();
+
+        $this->assertDatabaseHas('investigations', [
+            'title' => 'Caso nuevo del admin',
+            'created_by' => $admin->id,
+            'status' => InvestigationStatus::Open,
+        ]);
     }
 
     public function test_leaderboard_tool_orders_users_by_points_descending(): void
