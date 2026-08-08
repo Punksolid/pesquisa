@@ -77,14 +77,39 @@ bajo OAuth 2.1.
 (la vista de consentimiento que trae el propio paquete `laravel/mcp`) y el rate
 limiter `mcp` usado por el middleware `throttle:mcp`.
 
-Como la pantalla de consentimiento de Passport requiere una sesión web
-autenticada, el proyecto incluye un login mínimo (`/login`, guard `web`).
-Ese formulario **también sirve como registro**: si el email no existe todavía,
+### Conectar sin especificar nada: auto-provisioning por client_id
+
+Por defecto, **conectar un cliente MCP no requiere login ni pantalla de
+consentimiento**. El registro dinámico (`POST /oauth/register`, RFC 7591) ya le
+da a cada cliente MCP un `client_id` propio como parte del protocolo, sin que
+el usuario escriba nada. Pesquisa usa ese `client_id` como identidad:
+
+- `App\Http\Middleware\AutoProvisionMcpClientUser` corre sobre
+  `GET /oauth/authorize`: si no hay sesión web activa, busca (o crea) un
+  `User` con ese `passport_client_id` y lo loguea ahí mismo — columna agregada
+  en `add_passport_client_id_to_users_table`.
+- `App\Models\Client` (registrado vía `Passport::useClientModel()`) sobreescribe
+  `skipsAuthorization()` para que siempre devuelva `true`, así Passport nunca
+  muestra la pantalla de "¿autorizás esto?".
+
+El resultado: un `GET /oauth/authorize` con un `client_id` nuevo devuelve
+directo un `code` en el `redirect_uri`, sin ningún paso intermedio. Reconectar
+con el mismo `client_id` reutiliza el mismo usuario (mismos puntos).
+
+**Trade-off, a propósito:** la identidad queda atada a "esta instalación de
+este cliente MCP", no a una persona. No hay contraseña para demostrar que sos
+el mismo humano la próxima vez, y un cliente que re-registra en cada arranque
+va a generar una cuenta nueva cada vez. Si reinstalás el cliente o cambiás de
+máquina, perdés el hilo con los puntos de la cuenta anterior.
+
+Si querés una identidad estable y recuperable (por ejemplo para revisar tu
+leaderboard desde el navegador, o para no perder puntos si reinstalás tu
+cliente MCP), el login manual sigue disponible en `/login` (guard `web`) y
+**también sirve como registro**: si el email no existe todavía,
 `LoginController@store` crea la cuenta ahí mismo (con el nombre indicado, o el
 prefijo del email si se deja en blanco) y loguea al usuario en el mismo paso.
-En la práctica esto significa que conectarse por primera vez desde un cliente
-MCP —que redirige a `/login` al no encontrar sesión— ya alcanza para darse de
-alta: no hace falta un flujo de registro separado.
+Una sesión ya autenticada (manual o auto-provisionada) nunca es pisada por el
+middleware de auto-provisioning.
 
 ## Instalación
 
@@ -204,9 +229,12 @@ app/Mcp/Servers/PesquisaServer.php     Definición del servidor MCP
 app/Mcp/Tools/                          Las 7 tools
 app/Mcp/Resources/                      Los 2 resources
 app/Mcp/Prompts/                        El prompt
-app/Models/                             Investigation, Evidence, Hypothesis, HypothesisVote, User
+app/Models/                             Investigation, Evidence, Hypothesis, HypothesisVote, User, Client
+app/Models/Client.php                   skipsAuthorization() siempre true (sin pantalla de consentimiento)
+app/Http/Middleware/AutoProvisionMcpClientUser.php   Auto-alta por client_id
 app/Support/Points.php                  Constantes de la mecánica de puntos
 database/seeders/DemoInvestigationSeeder.php
 routes/ai.php                           Registro del servidor MCP + rutas OAuth
 tests/Feature/Mcp/PesquisaServerTest.php
+tests/Feature/Auth/LoginTest.php        Login/registro + auto-provisioning por client_id
 ```

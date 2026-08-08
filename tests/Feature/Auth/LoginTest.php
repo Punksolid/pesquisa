@@ -4,6 +4,7 @@ namespace Tests\Feature\Auth;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Passport\ClientRepository;
 use Tests\TestCase;
 
 class LoginTest extends TestCase
@@ -65,5 +66,78 @@ class LoginTest extends TestCase
 
         $response->assertSessionHasErrors('password');
         $this->assertGuest();
+    }
+
+    public function test_connecting_a_new_mcp_client_auto_provisions_a_user_and_skips_the_consent_screen(): void
+    {
+        $client = app(ClientRepository::class)->createAuthorizationCodeGrantClient(
+            'Test MCP Client',
+            ['https://client.example.com/callback'],
+            confidential: true,
+        );
+
+        $response = $this->get('/oauth/authorize?'.http_build_query([
+            'response_type' => 'code',
+            'client_id' => $client->getKey(),
+            'redirect_uri' => 'https://client.example.com/callback',
+            'scope' => 'mcp:use',
+            'state' => 'xyz',
+        ]));
+
+        $response->assertRedirect();
+        $location = $response->headers->get('Location');
+        $this->assertStringStartsWith('https://client.example.com/callback', $location);
+        $this->assertStringContainsString('code=', $location);
+
+        $this->assertDatabaseHas('users', ['passport_client_id' => $client->getKey()]);
+        $this->assertAuthenticated();
+    }
+
+    public function test_reconnecting_the_same_client_id_reuses_the_same_auto_provisioned_user(): void
+    {
+        $client = app(ClientRepository::class)->createAuthorizationCodeGrantClient(
+            'Test MCP Client',
+            ['https://client.example.com/callback'],
+            confidential: true,
+        );
+
+        $query = http_build_query([
+            'response_type' => 'code',
+            'client_id' => $client->getKey(),
+            'redirect_uri' => 'https://client.example.com/callback',
+            'scope' => 'mcp:use',
+        ]);
+
+        $this->get('/oauth/authorize?'.$query);
+        $firstUserId = auth()->id();
+
+        $this->post('/logout');
+        $this->assertGuest();
+
+        $this->get('/oauth/authorize?'.$query);
+
+        $this->assertSame(1, User::where('passport_client_id', $client->getKey())->count());
+        $this->assertSame($firstUserId, auth()->id());
+    }
+
+    public function test_an_already_authenticated_user_is_not_overridden_by_auto_provisioning(): void
+    {
+        $user = User::factory()->create();
+
+        $client = app(ClientRepository::class)->createAuthorizationCodeGrantClient(
+            'Test MCP Client',
+            ['https://client.example.com/callback'],
+            confidential: true,
+        );
+
+        $this->actingAs($user)->get('/oauth/authorize?'.http_build_query([
+            'response_type' => 'code',
+            'client_id' => $client->getKey(),
+            'redirect_uri' => 'https://client.example.com/callback',
+            'scope' => 'mcp:use',
+        ]));
+
+        $this->assertAuthenticatedAs($user);
+        $this->assertDatabaseMissing('users', ['passport_client_id' => $client->getKey()]);
     }
 }
