@@ -29,7 +29,7 @@ use Laravel\Mcp\Server\Attributes\Version;
     (confirm-hypothesis-tool), which closes the case and pays out bonus points to the
     proposer and everyone who voted for it. Use list-investigations-tool and
     view-investigation-tool to browse cases, and leaderboard-tool to see standings.
-    The Pesquisa admin can also open new cases with create-investigation-tool.
+    Anyone can open a new case with create-investigation-tool.
     INSTRUCTIONS
 )]
 class PesquisaServer extends Server

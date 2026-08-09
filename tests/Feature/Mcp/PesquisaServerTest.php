@@ -187,34 +187,20 @@ class PesquisaServerTest extends TestCase
             ->assertOk();
     }
 
-    public function test_create_investigation_tool_is_unreachable_for_a_regular_user(): void
+    public function test_any_authenticated_user_can_create_an_investigation(): void
     {
-        $user = User::factory()->create(['email' => 'nobody@pesquisa.test']);
+        $user = User::factory()->create();
 
         PesquisaServer::actingAs($user)
             ->tool(CreateInvestigationTool::class, [
-                'title' => 'Intento no autorizado',
-                'summary' => 'Esto no debería crearse.',
-            ])
-            ->assertHasErrors(['not found']);
-
-        $this->assertDatabaseMissing('investigations', ['title' => 'Intento no autorizado']);
-    }
-
-    public function test_create_investigation_tool_works_for_the_admin(): void
-    {
-        $admin = User::factory()->create(['email' => config('pesquisa.admin_email')]);
-
-        PesquisaServer::actingAs($admin)
-            ->tool(CreateInvestigationTool::class, [
-                'title' => 'Caso nuevo del admin',
+                'title' => 'Caso nuevo',
                 'summary' => 'Un caso recién abierto.',
             ])
             ->assertOk();
 
         $this->assertDatabaseHas('investigations', [
-            'title' => 'Caso nuevo del admin',
-            'created_by' => $admin->id,
+            'title' => 'Caso nuevo',
+            'created_by' => $user->id,
             'status' => InvestigationStatus::Open,
         ]);
     }

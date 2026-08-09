@@ -42,11 +42,8 @@ hipótesis, y confirmar la causa raíz cuando el caso se resuelve.
 - `vote-hypothesis-tool` — vota una hipótesis con un nivel de confianza (1-5).
 - `confirm-hypothesis-tool` — el creador del caso confirma la causa raíz, cierra el caso y paga el bono.
 - `leaderboard-tool` — top investigadores por puntos.
-- `create-investigation-tool` — abre un caso nuevo. **Solo visible/ejecutable para el
-  admin** (`config('pesquisa.admin_email')`, hoy hardcodeado a `punksolid@gmail.com`
-  en `config/pesquisa.php`): `shouldRegister()` la filtra tanto de `tools/list` como
-  de `tools/call` para cualquier otro usuario — no es "ocultarla en el menú", un
-  intento directo de llamarla por nombre devuelve `Tool not found`.
+- `create-investigation-tool` — abre un caso nuevo. Cualquier usuario autenticado
+  puede usarla.
 
 **2 resources**
 - `investigations://open` — snapshot en Markdown de todas las investigaciones abiertas.
